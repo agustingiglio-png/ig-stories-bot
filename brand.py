@@ -15,7 +15,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont, ImageOps
 
 ROOT = Path(__file__).resolve().parent
 PHOTOS = ROOT / "photos"
@@ -26,8 +26,11 @@ CANVAS = (1080, 1920)
 WORDMARK = "F I D E S . B A G S"
 WM_SIZE = 30
 WM_TRACK = 4
-GRAD_STRENGTH = 150          # oscurecimiento maximo del degradado inferior (0-255)
-GRAD_START = 0.60            # desde donde arranca el degradado (fraccion de alto)
+GRAD_STRENGTH = 115          # oscurecimiento maximo del degradado inferior (0-255)
+GRAD_START = 0.82            # arranca casi abajo: NO oscurece el bolso, solo el texto
+GAMMA = 0.78                 # <1 levanta sombras/medios (fotos oscuras -> se ven)
+SATURATION = 1.18            # recupera color (marron que se veia negro)
+CONTRAST = 1.05
 
 SANS = ["C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/arial.ttf", "DejaVuSans.ttf"]
 
@@ -52,10 +55,22 @@ def _tracked(draw, cx, y, text, fnt, fill, tracking, shadow=None):
             x += w + tracking
 
 
+def _fix_exposure(im: Image.Image) -> Image.Image:
+    """Levanta sombras (gamma), recupera saturacion y da un toque de contraste.
+
+    Pensado para fotos oscuras donde el marron/negro se empasta.
+    """
+    lut = [min(255, int(((i / 255.0) ** GAMMA) * 255 + 0.5)) for i in range(256)]
+    im = im.point(lut * 3)                       # gamma en R, G y B
+    im = ImageEnhance.Color(im).enhance(SATURATION)
+    im = ImageEnhance.Contrast(im).enhance(CONTRAST)
+    return im
+
+
 def brand_one(src: Path) -> Image.Image:
     with Image.open(src) as raw:
         im = ImageOps.exif_transpose(raw).convert("RGB")
-        im = ImageOps.autocontrast(im, cutoff=1)
+        im = _fix_exposure(im)
     im = ImageOps.fit(im, CANVAS, Image.LANCZOS, centering=(0.5, 0.45))
 
     # degradado inferior para legibilidad del wordmark
@@ -77,7 +92,8 @@ def brand_one(src: Path) -> Image.Image:
 def main():
     BACKUP.mkdir(exist_ok=True)
     files = sorted([p for p in PHOTOS.iterdir()
-                    if p.is_file() and p.suffix.lower() in IMAGE_EXT],
+                    if p.is_file() and p.suffix.lower() in IMAGE_EXT
+                    and "portada" not in p.name.lower()],   # la portada no se re-procesa
                    key=lambda p: p.name.lower())
     if not files:
         print("No hay imagenes en photos/")
