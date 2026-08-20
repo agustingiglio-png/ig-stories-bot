@@ -33,3 +33,6 @@ Thumbs.db
 # --- IMPORTANTE ---
 # photos/ y state/app.sqlite SI se versionan (son el contenido y el estado).
 # No los ignoramos a proposito.
+
+# Previews de diseno (descartables)
+_previews/

@@ -1,0 +1,87 @@
+========================================================================
+  IG STORIES BOT  -  GUIA RAPIDA DE COMANDOS
+  (todo se hace desde la carpeta del proyecto)
+========================================================================
+
+Carpeta del proyecto:
+  C:\Users\aguss\Desktop\ig-stories-bot
+
+El sistema publica SOLO todos los dias a las 13:00 (hora Argentina),
+aunque la PC este apagada (corre en la nube, GitHub Actions).
+NO tenes que hacer nada para que publique. Esto es solo por si queres
+cambiar algo.
+
+
+------------------------------------------------------------------------
+  PASO 0  -  ABRIR LA TERMINAL EN LA CARPETA (se hace siempre primero)
+------------------------------------------------------------------------
+1) Abri el Explorador de archivos en:
+     C:\Users\aguss\Desktop\ig-stories-bot
+2) Hace clic en la barra de direcciones (arriba), borra lo que dice,
+   escribi:  powershell   y apreta Enter.
+   -> Se abre una terminal YA ubicada en la carpeta. Listo.
+
+(Alternativa: tecla Windows -> escribi "powershell" -> Enter, y luego
+ pega:   cd "C:\Users\aguss\Desktop\ig-stories-bot"   y Enter)
+
+
+------------------------------------------------------------------------
+  COMANDOS  (copiar/pegar en la terminal y Enter)
+------------------------------------------------------------------------
+
+>> VER EL ESTADO DE HOY (si va a publicar, cuantas fotos, etc.)
+   .\.venv\Scripts\python.exe manage.py status
+
+>> HOY NO PUBLICAR
+   .\.venv\Scripts\python.exe manage.py skip today
+
+>> VOLVER A HABILITAR HOY (deshacer el skip)
+   .\.venv\Scripts\python.exe manage.py unskip today
+
+>> NO PUBLICAR UNA FECHA PUNTUAL (ejemplo 25 de agosto 2026)
+   .\.venv\Scripts\python.exe manage.py skip 2026-08-25
+
+>> HABILITAR ESA FECHA DE NUEVO
+   .\.venv\Scripts\python.exe manage.py unskip 2026-08-25
+
+>> PROBAR TODO SIN PUBLICAR (simulacro)
+   .\.venv\Scripts\python.exe manage.py dry-run
+
+>> PUBLICAR AHORA A MANO (respeta que no repita si ya se publico hoy)
+   .\.venv\Scripts\python.exe manage.py publish
+
+>> VER EL HISTORIAL DE PUBLICACIONES
+   .\.venv\Scripts\python.exe manage.py history
+
+IMPORTANTE sobre skip:
+ - Hacelo ANTES de las 13:00 para que tenga efecto ese dia.
+ - skip/unskip se guardan solos en la nube (hacen git push automatico).
+
+
+------------------------------------------------------------------------
+  CAMBIAR LAS FOTOS / VIDEOS
+------------------------------------------------------------------------
+1) Entra a la carpeta:  C:\Users\aguss\Desktop\ig-stories-bot\photos
+2) Borra las que no quieras y copia las nuevas.
+   - Se aceptan:  .jpg  .png  (fotos)   y   .mp4  .mov  (videos)
+   - El ORDEN de publicacion = orden de los nombres (01, 02, 03...).
+     Para ordenar, renombralas: 01_algo.jpg, 02_algo.jpg, etc.
+   - Videos: verticales, hasta 60 segundos.
+3) Verifica que quedaron bien:
+   .\.venv\Scripts\python.exe manage.py photos
+4) Subi el cambio a la nube (para que la nube use las nuevas):
+   git add photos
+   git commit -m "nuevas fotos"
+   git push
+
+
+------------------------------------------------------------------------
+  DATOS UTILES
+------------------------------------------------------------------------
+ - Cuenta de Instagram:   @fides.bags
+ - Repositorio (nube):    github.com/agustingiglio-png/ig-stories-bot
+ - Hora de publicacion:   13:00 America/Argentina/Buenos_Aires
+ - El token se renueva SOLO cada semana (no expira).
+ - Guia completa: abrir el archivo README.md de la carpeta.
+
+========================================================================
