@@ -1,0 +1,59 @@
+name: publish-stories
+
+# Se ejecuta todos los dias a las 13:00 de Argentina.
+# Argentina es UTC-3 todo el año (sin horario de verano) => 16:00 UTC.
+# Nota: los cron de GitHub Actions pueden demorarse algunos minutos si hay
+# mucha carga; para stories diarias es irrelevante.
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch: {}      # permite dispararlo a mano desde la pestaña Actions
+
+# Evita que dos corridas se pisen (idempotencia extra a nivel workflow).
+concurrency:
+  group: publish-stories
+  cancel-in-progress: false
+
+permissions:
+  contents: write            # para commitear el estado (state/) de vuelta al repo
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install cloudflared
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+          sudo chmod +x /usr/local/bin/cloudflared
+          cloudflared --version
+
+      - name: Publish stories
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          GRAPH_VERSION: ${{ vars.GRAPH_VERSION || 'v23.0' }}
+        run: |
+          python manage.py publish --no-push
+
+      - name: Persist state back to repo
+        if: always()          # incluso si fallo a mitad: guarda que se publico
+        run: |
+          git config user.name  "ig-stories-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state logs || true
+          git commit -m "run: estado $(date -u +%F) [skip ci]" || echo "sin cambios"
+          git pull --rebase --autostash || true
+          git push || echo "push fallo"

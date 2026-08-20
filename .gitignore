@@ -1,0 +1,35 @@
+# Secretos: NUNCA subir
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+*.egg-info/
+
+# Logs locales (se regeneran). El historial "de verdad" vive en la DB.
+logs/*.log
+
+# Temporales del tunel / imagenes convertidas en runtime
+.tmp/
+*.tmp
+
+# Backups locales de video original (pesados, NO subir)
+originales/
+
+# WAL de sqlite (transitorios); el app.sqlite SI se versiona
+state/*.sqlite-wal
+state/*.sqlite-shm
+
+# OS
+.DS_Store
+Thumbs.db
+
+# --- IMPORTANTE ---
+# photos/ y state/app.sqlite SI se versionan (son el contenido y el estado).
+# No los ignoramos a proposito.
