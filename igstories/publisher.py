@@ -27,6 +27,9 @@ TMP_DIR = ROOT / ".tmp" / "serve"
 # Backoff (segundos) por categoria de error.
 _RETRY_TRANSIENT = [5, 15, 45]
 _RETRY_RATELIMIT = [60, 180, 300]
+# "Only photo or video can be accepted" suele ser un fetch fallido del tunel
+# (no una imagen realmente mala), asi que reintentamos unas pocas veces.
+_RETRY_IMAGE = [6, 12, 20]
 
 
 @dataclass
@@ -73,7 +76,13 @@ def _publish_one_with_retries(client: InstagramClient, media_url: str,
                 raise
             wait = _RETRY_TRANSIENT[attempt]
             log.warning("Error temporal (%s). Reintento en %ds", e, wait)
-        # Auth/Permanent/ImageRejected: NO se capturan -> propagan sin reintentar.
+        except ImageRejectedError as e:
+            # A veces es un fetch transitorio del tunel, no una imagen mala.
+            if attempt >= len(_RETRY_IMAGE):
+                raise
+            wait = _RETRY_IMAGE[attempt]
+            log.warning("Media rechazada (posible fetch transitorio). Reintento en %ds: %s", wait, e)
+        # Auth/Permanent: NO se capturan -> propagan sin reintentar.
         attempt += 1
         time.sleep(wait)
 

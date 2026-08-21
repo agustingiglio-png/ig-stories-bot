@@ -121,7 +121,24 @@ def public_urls(serve_dir: Path, filenames: list[str], cloudflared_bin: str = ""
         threading.Thread(target=lambda: [proc.stdout.readline() for _ in iter(int, 1)],
                          daemon=True).start()
 
-        yield {fn: f"{base_url}/{fn}" for fn in filenames}
+        urls = {fn: f"{base_url}/{fn}" for fn in filenames}
+
+        # Pre-calentar el tunel: la PRIMERA descarga de un tunel recien creado a
+        # veces falla (Meta ve la imagen incompleta -> "Only photo or video...").
+        # Hacemos un par de GET nosotros para que el edge de Cloudflare quede listo.
+        import urllib.request
+        time.sleep(2)
+        for fn in filenames[:2]:
+            for _ in range(3):
+                try:
+                    with urllib.request.urlopen(urls[fn], timeout=20) as r:
+                        r.read(2048)
+                    break
+                except Exception:
+                    time.sleep(2)
+        log.info("Tunel pre-calentado")
+
+        yield urls
     finally:
         try:
             proc.terminate()

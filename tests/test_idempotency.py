@@ -5,7 +5,8 @@ import pytest
 
 from igstories import db, publisher
 from igstories.config import today_ar
-from igstories.instagram import AuthError, RateLimitError, TransientError
+from igstories.instagram import (AuthError, ImageRejectedError, RateLimitError,
+                                 TransientError)
 from tests.conftest import FakeClient, url_for
 
 
@@ -76,6 +77,17 @@ def test_transient_retries_then_succeeds(photos10, dummy_hosting, fake_settings,
     monkeypatch.setattr(publisher, "_client", lambda s: client)
     res = publisher.publish(fake_settings)
     assert res.status == "COMPLETED"
+
+
+def test_image_rejected_retries_then_succeeds(photos10, dummy_hosting, fake_settings, monkeypatch):
+    # "Only photo or video..." suele ser fetch transitorio del tunel -> debe reintentar
+    behavior = {url_for(1): [ImageRejectedError("Only photo or video", code=100, subcode=2207009)]}
+    client = FakeClient(behavior=behavior)
+    monkeypatch.setattr(publisher, "_client", lambda s: client)
+    res = publisher.publish(fake_settings)
+    assert res.status == "COMPLETED"
+    assert res.published == 10
+    assert client._calls[url_for(1)] == 2   # fallo 1 + exito al reintentar
 
 
 def test_auth_error_stops_and_no_retry(photos10, dummy_hosting, fake_settings, monkeypatch):
