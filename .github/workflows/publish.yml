@@ -6,7 +6,11 @@ name: publish-stories
 # mucha carga; para stories diarias es irrelevante.
 on:
   schedule:
-    - cron: "0 16 * * *"
+    # GitHub saltea/atrasa el cron "en punto" (muy congestionado). Usamos
+    # minutos impares y DOS horarios: si GitHub saltea el primero, el segundo
+    # cubre. La idempotencia evita doble posteo (el 2do ve COMPLETED y no repite).
+    - cron: "7 16 * * *"     # 13:07 ART
+    - cron: "27 16 * * *"    # 13:27 ART (respaldo)
   workflow_dispatch: {}      # permite dispararlo a mano desde la pestaña Actions
 
 # Evita que dos corridas se pisen (idempotencia extra a nivel workflow).
