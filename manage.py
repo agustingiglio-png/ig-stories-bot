@@ -241,6 +241,25 @@ def cmd_exchange_token(args):
     print(f"(expira en ~{int(data.get('expires_in',0))//86400} dias)")
 
 
+def _update_env_token(token: str) -> bool:
+    """Reescribe IG_ACCESS_TOKEN en el .env local (para el camino-PC)."""
+    env = ROOT / ".env"
+    if not env.exists() or not token:
+        return False
+    lines = env.read_text(encoding="utf-8").splitlines()
+    out, found = [], False
+    for ln in lines:
+        if ln.startswith("IG_ACCESS_TOKEN="):
+            out.append(f"IG_ACCESS_TOKEN={token}")
+            found = True
+        else:
+            out.append(ln)
+    if not found:
+        out.append(f"IG_ACCESS_TOKEN={token}")
+    env.write_text("\n".join(out) + "\n", encoding="utf-8")
+    return True
+
+
 def cmd_refresh_token(args):
     from igstories import publisher
     setup_logging(verbose=True)
@@ -249,7 +268,11 @@ def cmd_refresh_token(args):
         print("No hacia falta refrescar.")
         return
     tok = data.get("access_token", "")
-    print("NUEVO_TOKEN=" + tok)  # el workflow captura esta linea para actualizar el Secret
+    if getattr(args, "write_env", False):
+        if _update_env_token(tok):
+            print("Token actualizado en .env")
+    else:
+        print("NUEVO_TOKEN=" + tok)  # el workflow captura esta linea para actualizar el Secret
 
 
 # --- utilidades de status ----------------------------------------------------
@@ -314,6 +337,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("refresh-token", help="refrescar token long-lived")
     sp.add_argument("--force", action="store_true")
+    sp.add_argument("--write-env", action="store_true",
+                    help="escribe el token nuevo en .env (camino-PC)")
     sp.set_defaults(func=cmd_refresh_token)
     return p
 
