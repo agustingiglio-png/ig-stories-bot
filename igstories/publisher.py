@@ -87,6 +87,39 @@ def _publish_one_with_retries(client: InstagramClient, media_url: str,
         time.sleep(wait)
 
 
+def _publish_pending(client, day, pending, by_seq, fn_by_seq, urls, result, log):
+    """Publica las stories pendientes usando el dict de urls dado (raw o tunel)."""
+    for s in pending:
+        seq = s["seq"]
+        media = by_seq[seq]
+        orig = media.filename
+        url = urls[fn_by_seq[seq]]
+        log.info("Publicando %s (seq %02d, %s)", orig, seq, media.kind)
+        try:
+            media_id = _publish_one_with_retries(client, url, is_video=media.is_video)
+            db.mark_story_published(day, seq, media_id)
+            result.published += 1
+            log.info("Story %02d publicada (media_id=%s)", seq, media_id)
+        except AuthError as e:
+            msg = f"Auth/permiso al publicar seq {seq}: {e}"
+            log.error(msg)
+            db.mark_story_failed(day, seq, str(e))
+            result.errors.append(msg)
+            break  # sin token valido no tiene sentido seguir
+        except ImageRejectedError as e:
+            msg = f"Imagen rechazada seq {seq} ({orig}): {e}"
+            log.error(msg)
+            db.mark_story_failed(day, seq, str(e))
+            result.errors.append(msg)
+            continue  # sigue con las demas
+        except (PermanentError, RateLimitError, TransientError) as e:
+            msg = f"Fallo seq {seq} ({orig}): {e}"
+            log.error(msg)
+            db.mark_story_failed(day, seq, str(e))
+            result.errors.append(msg)
+            continue
+
+
 def publish(settings: Settings, force_day: str | None = None) -> Result:
     """Publica las Stories del dia. Respeta idempotencia y skips."""
     log = get_logger()
@@ -151,53 +184,34 @@ def publish(settings: Settings, force_day: str | None = None) -> Result:
     result = Result(day, "RUNNING", total=len(stories),
                     published=len(stories) - len(pending))
 
-    if TMP_DIR.exists():
-        shutil.rmtree(TMP_DIR, ignore_errors=True)
-    served = materialize([by_seq[s["seq"]] for s in pending], TMP_DIR)
-    fn_by_seq = {photo.seq: path.name for photo, path in served}
-    filenames = [path.name for _, path in served]
+    fn_by_seq = {p.seq: p.filename for p in photos}
 
-    try:
-        with public_urls(TMP_DIR, filenames, settings.cloudflared_bin) as urls:
-            for s in pending:
-                seq = s["seq"]
-                fname = fn_by_seq[seq]
-                media = by_seq[seq]
-                orig = media.filename
-                log.info("Publicando %s (seq %02d, %s)", orig, seq, media.kind)
-                try:
-                    media_id = _publish_one_with_retries(client, urls[fname],
-                                                         is_video=media.is_video)
-                    db.mark_story_published(day, seq, media_id)
-                    result.published += 1
-                    log.info("Story %02d publicada (media_id=%s)", seq, media_id)
-                except AuthError as e:
-                    msg = f"Auth/permiso al publicar seq {seq}: {e}"
-                    log.error(msg)
-                    db.mark_story_failed(day, seq, str(e))
-                    result.errors.append(msg)
-                    break  # sin token valido no tiene sentido seguir
-                except ImageRejectedError as e:
-                    msg = f"Imagen rechazada seq {seq} ({orig}): {e}"
-                    log.error(msg)
-                    db.mark_story_failed(day, seq, str(e))
-                    result.errors.append(msg)
-                    continue  # sigue con las demas
-                except (PermanentError, RateLimitError, TransientError) as e:
-                    msg = f"Fallo seq {seq} ({orig}): {e}"
-                    log.error(msg)
-                    db.mark_story_failed(day, seq, str(e))
-                    result.errors.append(msg)
-                    continue
-    except HostingError as e:
-        msg = f"No se pudo montar el tunel publico: {e}"
-        log.error(msg)
-        db.set_run_status(day, "FAILED", error=msg, finished=True)
-        result.status = "FAILED"
-        result.errors.append(msg)
-        return result
-    finally:
-        shutil.rmtree(TMP_DIR, ignore_errors=True)
+    if settings.media_base_url:
+        # Servir desde URL publica estable (raw de GitHub): SIN tunel, confiable.
+        import urllib.parse
+        base = settings.media_base_url.rstrip("/")
+        urls = {p.filename: f"{base}/{urllib.parse.quote(p.filename)}" for p in photos}
+        log.info("Sirviendo medios desde URL publica estable: %s", base)
+        _publish_pending(client, day, pending, by_seq, fn_by_seq, urls, result, log)
+    else:
+        # Fallback: tunel efimero de Cloudflare (uso local sin repo publico).
+        if TMP_DIR.exists():
+            shutil.rmtree(TMP_DIR, ignore_errors=True)
+        served = materialize([by_seq[s["seq"]] for s in pending], TMP_DIR)
+        tfn_by_seq = {photo.seq: path.name for photo, path in served}
+        filenames = [path.name for _, path in served]
+        try:
+            with public_urls(TMP_DIR, filenames, settings.cloudflared_bin) as urls:
+                _publish_pending(client, day, pending, by_seq, tfn_by_seq, urls, result, log)
+        except HostingError as e:
+            msg = f"No se pudo montar el tunel publico: {e}"
+            log.error(msg)
+            db.set_run_status(day, "FAILED", error=msg, finished=True)
+            result.status = "FAILED"
+            result.errors.append(msg)
+            return result
+        finally:
+            shutil.rmtree(TMP_DIR, ignore_errors=True)
 
     # 7) Estado final.
     stories = db.get_stories(day)

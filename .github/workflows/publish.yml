@@ -49,6 +49,8 @@ jobs:
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           GRAPH_VERSION: ${{ vars.GRAPH_VERSION || 'v23.0' }}
+          # Servir medios desde raw de GitHub (repo publico): estable, sin tunel.
+          MEDIA_BASE_URL: "https://raw.githubusercontent.com/agustingiglio-png/ig-stories-bot/main/photos"
         run: |
           python manage.py publish --no-push
 

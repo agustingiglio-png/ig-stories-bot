@@ -52,7 +52,7 @@ def test_classify_permanent_default():
 
 def test_publish_without_token_fails(photos10, dummy_hosting):
     settings = Settings(access_token="", ig_user_id="", app_secret="",
-                        graph_version="v23.0", cloudflared_bin="/bin/true")
+                        graph_version="v23.0", cloudflared_bin="/bin/true", media_base_url="")
     res = publisher.publish(settings)
     assert res.status == "FAILED"
     assert "IG_ACCESS_TOKEN" in res.reason

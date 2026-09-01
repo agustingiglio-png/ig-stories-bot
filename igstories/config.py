@@ -60,6 +60,7 @@ class Settings:
     app_secret: str
     graph_version: str
     cloudflared_bin: str
+    media_base_url: str
 
     @property
     def has_token(self) -> bool:
@@ -74,6 +75,9 @@ def get_settings() -> Settings:
         app_secret=os.environ.get("IG_APP_SECRET", "").strip(),
         graph_version=os.environ.get("GRAPH_VERSION", "v23.0").strip(),
         cloudflared_bin=os.environ.get("CLOUDFLARED_BIN", "").strip(),
+        # Si esta seteada, se sirven los medios desde esta URL publica estable
+        # (raw de GitHub) en vez del tunel efimero. Mucho mas confiable.
+        media_base_url=os.environ.get("MEDIA_BASE_URL", "").strip(),
     )
 
 

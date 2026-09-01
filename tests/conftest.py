@@ -105,4 +105,4 @@ class FakeClient:
 @pytest.fixture
 def fake_settings():
     return Settings(access_token="TOK", ig_user_id="123", app_secret="",
-                    graph_version="v23.0", cloudflared_bin="/bin/true")
+                    graph_version="v23.0", cloudflared_bin="/bin/true", media_base_url="")

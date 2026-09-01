@@ -79,6 +79,18 @@ def test_transient_retries_then_succeeds(photos10, dummy_hosting, fake_settings,
     assert res.status == "COMPLETED"
 
 
+def test_raw_url_hosting(photos10, fake_settings, monkeypatch):
+    # con media_base_url no usa tunel: arma URLs raw estables
+    from dataclasses import replace
+    s = replace(fake_settings, media_base_url="https://raw.example/photos")
+    client = FakeClient()
+    monkeypatch.setattr(publisher, "_client", lambda _s: client)
+    res = publisher.publish(s)
+    assert res.status == "COMPLETED"
+    assert res.published == 10
+    assert all(u.startswith("https://raw.example/photos/") for u in client.published)
+
+
 def test_image_rejected_retries_then_succeeds(photos10, dummy_hosting, fake_settings, monkeypatch):
     # "Only photo or video..." suele ser fetch transitorio del tunel -> debe reintentar
     behavior = {url_for(1): [ImageRejectedError("Only photo or video", code=100, subcode=2207009)]}
